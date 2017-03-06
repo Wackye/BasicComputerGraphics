@@ -142,7 +142,7 @@ void Application::RGBA_To_RGB( unsigned char *rgba, unsigned char *rgb )
 ///////////////////////////////////////////////////////////////////////////////
 //
 //  Convert image to grayscale.  Red, green, and blue channels should all 
-//  contain grayscale value.  Alpha channel shoould be left unchanged.  Return
+//  contain grayscale value.  Alpha channel should be left unchanged.  Return
 //  success of operation.
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -154,12 +154,13 @@ void Application::Gray()
 	{
 		for (int j=0; j<img_width; j++)
 		{
-			int offset_rgb = i*img_width*3+j*3;
-			int offset_rgba = i*img_width*4+j*4;
+			int offset_rgb = (i*img_width+j)*3; 
+			int offset_rgba = (i*img_width+j)*4;
 			unsigned char gray = 0.3 * rgb[offset_rgb + rr] + 0.59 * rgb[offset_rgb + gg] + 0.11 * rgb[offset_rgb + bb];
 
 			for (int k=0; k<3; k++)
-				img_data[offset_rgba+k] = gray;
+				img_data[offset_rgba + k] = gray; //把rgb都丟入gray的顏色, alpha變成白色, 色彩就會變灰階
+
 			img_data[offset_rgba + aa] = WHITE;
 		}
 	}
@@ -177,7 +178,12 @@ void Application::Gray()
 void Application::Quant_Uniform()
 {
 	unsigned char *rgb = this->To_RGB();
-
+	
+		for (int i = 0; i < img_width*4; i++)
+		{
+			for (int j = 0; j < img_height*4; j++)
+				img_data[(i * img_height + j)] = img_data[(i * img_height + j)] / 32 * 32;	
+		}
 
 	delete[] rgb;
 	mImageDst = QImage(img_data, img_width, img_height, QImage::Format_ARGB32 );
@@ -210,8 +216,23 @@ void Application::Quant_Populosity()
 void Application::Dither_Threshold()
 {
 	unsigned char *rgb = this->To_RGB();
+	
+	for (int i = 0; i < img_height; i++)
+	{
+		for (int j = 0; j < img_width; j++)
+		{
+			int offset_rgb = (i*img_width + j) * 3;
+			int offset_rgba = (i*img_width + j) * 4;
+			unsigned char gray = 0.3 * rgb[offset_rgb + rr] + 0.59 * rgb[offset_rgb + gg] + 0.11 * rgb[offset_rgb + bb];
 
-
+			for (int k = 0; k < 3; k++)
+			{ //直接從gray借來用
+				if (gray > 128) img_data[offset_rgba + k] = WHITE;
+				else img_data[offset_rgba + k] = BLACK;
+			}
+			img_data[offset_rgba + aa] = WHITE;
+		}
+	}
 
 	delete[] rgb;
 	mImageDst = QImage(img_data, img_width, img_height, QImage::Format_ARGB32 );

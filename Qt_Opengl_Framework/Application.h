@@ -30,6 +30,7 @@ public:
 	void Gray();
 	void Quant_Uniform();
 	void Quant_Populosity();
+//	VOID Find_Median(unsigned char* rgb);
 
 	// Dithering
 	void Dither_Threshold();
@@ -49,6 +50,9 @@ public:
 	void Filter_Edge();
 	void Filter_Enhance();
 
+	//Convert
+	unsigned char* RGB2HSV(unsigned char *RGB);
+	unsigned char* HSV2RGB(unsigned char *HSV);
 	// Size
 	void Half_Size();
 	void Double_Size();
@@ -56,6 +60,7 @@ public:
 	void Rotate(float angleDegrees);
 	void resample_src(int u, int v, float ww, unsigned char* rgba);
 
+	unsigned char Quick_select(std::vector<unsigned char> gray);
 	// Composing
 	enum _CompImage { _over, _in, _out, _atop, _xor };
 	void Comp_image(int tMethod);

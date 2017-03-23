@@ -3,6 +3,7 @@
 #include <vector>
 #include <set>
 #include <stdlib.h>
+#include <math.h>
 Application::Application()
 {
 
@@ -660,43 +661,55 @@ void Application::filtering( double **filter, int n )
 ///////////////////////////////////////////////////////////////////////////////
 void Application::Filter_Box()
 {
-	//只跑中間
-	/*for (int i = 1; i < img_width-1; i++)
-	{
-		for (int j = 1; j < img_width - 1; j++)
-		{
-			int sumR = 0, sumB = 0, sumG = 0;
-			int center = (i*img_width + j) * 4;
-			
-			for (int k = -1; k < 2; k++)
-			{
-				sumR += img_data[center + rr + k] + img_data[center - img_width * 4 + rr + k] + img_data[center + img_width * 4 + rr + k];
-				sumG += img_data[center + gg + k] + img_data[center - img_width * 4 + gg + k] + img_data[center + img_width * 4 + gg + k];
-				sumB += img_data[center + bb + k] + img_data[center - img_width * 4 + bb + k] + img_data[center + img_width * 4 + bb + k];
-			}
-			img_data[center +rr] = sumR /= 9;
-			img_data[center + bb] = sumB /= 9;
-			img_data[center + gg] = sumG /= 9;
-		}
-	}*/
-
 	unsigned char *rgb = this->To_RGB();
 	unsigned char *hsv;
 	hsv = RGB2HSV(rgb);
-	rgb = HSV2RGB(hsv);
-
-	for (int i = 0; i < img_height; i++)
-	{
-		for (int j = 0; j < img_width; j++)
+	//for(int t = 0; t < 1; t++)
+		for (int i = 1; i < img_height - 1; i++)
 		{
-			for (int k = 0; k < 3; k++)
+			for (int j = 1; j < img_width - 1; j++)
 			{
-				img_data[4 * (img_width*i + j) + k] = rgb[(i*img_width + j)*3 + k ];
+				int offset_hsv = 3 * (i*img_width + j);
+				// 			if (i-1 >= 0) //如果有上方for (int k = -1; k < 2; k++)
+				int sumS = 0, sumV = 0;
+				for (int k = -1; k <= 1; k++)
+				{
+					sumS += hsv[((i - 1)*img_width + j + k) * 3 + 1] + hsv[(i*img_width + j + k) * 3 + 1] + hsv[((i + 1)*img_width + j + k) * 3 + 1];
+					//				S    = hsv[上]							+ hsv[中]					 + hsv[下]
+					sumV += hsv[((i - 1)*img_width + j + k) * 3 + 2] + hsv[(i*img_width + j + k) * 3 + 2] + hsv[((i + 1)*img_width + j + k) * 3 + 2];
+					//				V	 = 
+				}
+				hsv[offset_hsv + 1] = sumS/9;
+				hsv[offset_hsv + 2] = sumV/9;
+				// 			{
+				// 				tmpS += hsv[3 * ((i - 1)*img_width + j) + 1]; //上
+				// 				tmpV += hsv[3 * ((i - 1)*img_width + j) + 2];
+				// 				cnt++;
+				// 
+				// 				if(j-1 >= 0 && j < img_width-1) //如果有左~中間
+				// 				{
+				// 					tmpS += hsv[3 * ((i-1)*img_width + j-1) + 1]; //左上
+				// 					tmpS += hsv[3 * ((i)*img_width + j-1) + 1]; //右上
+				// 				}
+				// 				else if(j+1 < img_width )
+				// 				}
+				// 			}
 			}
 		}
-	}
-	mImageDst = QImage(img_data, img_width, img_height, QImage::Format_ARGB32);
-	renew();
+		rgb = HSV2RGB(hsv);
+		for (int i = 0; i < img_height; i++)
+		{
+			for (int j = 0; j < img_width; j++)
+			{
+				
+		  		for (int k = 0; k < 3; k++)
+				{
+					img_data[4 * (img_width*i + j) + k] = rgb[(i*img_width + j)*3 + k ];
+				}
+			}
+		}
+		mImageDst = QImage(img_data, img_width, img_height, QImage::Format_ARGB32);
+		renew();
 }
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -716,7 +729,55 @@ void Application::Filter_Bartlett()
 ///////////////////////////////////////////////////////////////////////////////
 void Application::Filter_Gaussian()
 {
+	unsigned char *rgb = this->To_RGB();
+	unsigned char *hsv;
+	hsv = RGB2HSV(rgb);
+	for (int i = 0+2; i < img_height - 2; i++)
+		{
+			for (int j = 0+2; j < img_width - 2; j++)
+			{
+				int offset_hsv = 3 * (i*img_width + j);
+				// 			if (i-1 >= 0) //如果有上方for (int k = -1; k < 2; k++)
+				int sumS = 0, sumV = 0;
+				for (int h = -2; h <= 2; h++)
+				{
+					for (int v = -2; v <= 2; v++)
+					{	//horizontal, vertical
+						int weightH = Combination(2 + 2, abs(h+2)), weightV = Combination(2 + 2, abs(v+2));
+						sumS += weightH * weightV * (int)hsv[((i + h)*img_width + j + v)*3 + 1];
+						sumV += weightH * weightV * (int)hsv[((i + h)*img_width + j + v)*3 + 2];
+					}
+				}
+				hsv[offset_hsv + 1] = sumS / 256;
+				hsv[offset_hsv + 2] = sumV / 256;
+			}
+		}
+		rgb = HSV2RGB(hsv);
+		for (int i = 0; i < img_height; i++)
+		{
+			for (int j = 0; j < img_width; j++)
+			{
+				for (int k = 0; k < 3; k++)
+				{
+					img_data[4 * (img_width*i + j) + k] = rgb[(i*img_width + j) * 3 + k];
+				}
+			}
+		}
+	mImageDst = QImage(img_data, img_width, img_height, QImage::Format_ARGB32);
+	renew();
 
+}
+int Application::Combination(int m, int n) //Cm取n
+{
+	int sumM = 1, sumN = 1, sumMN = 1;
+	for (int i = 1; i <= m; i++)
+		sumM *= i;
+	for (int i = 1; i <= n; i++)
+		sumN *= i;
+	for (int i = 1; i <= m - n; i++)
+		sumMN *= i;
+
+	return sumM / (sumN * sumMN);
 }
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -724,9 +785,46 @@ void Application::Filter_Gaussian()
 //  operation.
 //
 ///////////////////////////////////////////////////////////////////////////////
-void Application::Filter_Gaussian_N( unsigned int N )
+void Application::Filter_Gaussian_N( int N )
 {
-
+	if (N % 2 == 0) exit(0);
+	unsigned char *rgb = this->To_RGB();
+	unsigned char *hsv;
+	hsv = RGB2HSV(rgb);
+		for (int i = 0 + N; i < img_height - N; i++)
+		{
+			for (int j = 0 + N; j < img_width - N; j++)
+			{
+				int offset_hsv = 3 * (i*img_width + j);
+				// 			if (i-1 >= 0) //如果有上方for (int k = -1; k < 2; k++)
+				int sumS = 0, sumV = 0, sum = 0;
+				for (int h = -N/2; h <= N/2; h++)
+				{
+					for (int v = -N/2; v <= N/2; v++)
+					{	//horizontal, vertical
+						int weightH = Combination(N-1, h + N/2), weightV = Combination(N-1, v + N / 2);
+						sum += weightH * weightV;
+						sumS += weightH * weightV * (int)hsv[((i + h)*img_width + j + v) * 3 + 1];
+						sumV += weightH * weightV * (int)hsv[((i + h)*img_width + j + v) * 3 + 2];
+					}
+				}
+				hsv[offset_hsv + 1] = sumS / sum;
+				hsv[offset_hsv + 2] = sumV / sum;
+			}
+		}
+		rgb = HSV2RGB(hsv);
+		for (int i = 0; i < img_height; i++)
+		{
+			for (int j = 0; j < img_width; j++)
+			{
+				for (int k = 0; k < 3; k++)
+				{
+					img_data[4 * (img_width*i + j) + k] = rgb[(i*img_width + j) * 3 + k];
+				}
+			}
+		}
+	mImageDst = QImage(img_data, img_width, img_height, QImage::Format_ARGB32);
+	renew();
 }
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -736,7 +834,7 @@ void Application::Filter_Gaussian_N( unsigned int N )
 ///////////////////////////////////////////////////////////////////////////////
 void Application::Filter_Edge()
 {
-
+	 
 }
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -761,10 +859,29 @@ void Application::Filter_Enhance()
 //
 //  Halve the dimensions of this image.  Return success of operation.
 //
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////0
 void Application::Half_Size()
 {
-	mImageDst = QImage(img_data, img_width, img_height, QImage::Format_ARGB32 );
+	unsigned char *newRGBA = new unsigned char[img_height*img_width]; //img_height/2*img_width/2 * 4
+	size_t count = 0;
+	int sum[4] = { 0 };
+	for (int i = 0; i < img_height - 1; i+=2)
+	{
+		for (int j = 0; j < img_width - 1; j+=2)
+		{
+			for (int k = 0; k < 4; k++)
+			{//B G R A //沒有B圖層
+				sum[k] = (int)(img_data[(i*img_width + j) * 4 + k] + img_data[(i*img_width + j + 1) * 4 + k] + img_data[((i + 1)*img_width + j) * 4 + k] + img_data[((i + 1)*img_width + j + 1) * 4 + k]) / 4;
+			}
+			//(i*(img_width)/2 + j/2)*4
+				newRGBA[i*img_width + j*2 + 0] = sum[0];
+				newRGBA[i*img_width + j*2 + 1] = sum[1];
+				newRGBA[i*img_width + j*2 + 2] = sum[2];
+				newRGBA[i*img_width + j*2 + 3] = sum[3];
+		}
+	}
+	
+	mImageDst = QImage(newRGBA, img_width/2, img_height/2, QImage::Format_ARGB32 );
 	renew();
 }
 ///////////////////////////////////////////////////////////////////////////////

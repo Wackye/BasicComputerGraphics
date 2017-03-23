@@ -46,13 +46,15 @@ public:
 	void Filter_Box();
 	void Filter_Bartlett();
 	void Filter_Gaussian();
-	void Filter_Gaussian_N(unsigned int N);
+	void Filter_Gaussian_N(int N);
 	void Filter_Edge();
 	void Filter_Enhance();
 
 	//Convert
 	unsigned char* RGB2HSV(unsigned char *RGB);
 	unsigned char* HSV2RGB(unsigned char *HSV);
+	int Combination(int m, int n);
+	
 	// Size
 	void Half_Size();
 	void Double_Size();
@@ -75,6 +77,7 @@ public:
 	void Paint_Stroke(const Stroke& s);
 	void NPR_Paint_Layer(unsigned char *tCanvas, unsigned char *tReferenceImage, int tBrushSize);
 	
+
 protected:
 	QImage mImageSrc, mImageSrcSecond;
 	QImage mImageDst;

@@ -719,7 +719,42 @@ void Application::Filter_Box()
 ///////////////////////////////////////////////////////////////////////////////
 void Application::Filter_Bartlett()
 {
-
+	unsigned char *rgb = this->To_RGB();
+	unsigned char *hsv;
+	hsv = RGB2HSV(rgb);
+	for (int i = 0 + 2; i < img_height - 2; i++)
+	{
+		for (int j = 0 + 2; j < img_width - 2; j++)
+		{
+			int offset_hsv = 3 * (i*img_width + j);
+			// 			if (i-1 >= 0) //如果有上方for (int k = -1; k < 2; k++)
+			int sumS = 0, sumV = 0;
+			for (int h = -2; h <= 2; h++)
+			{
+				for (int v = -2; v <= 2; v++)
+				{	//horizontal, vertical
+					int weightH = 3 - abs(h), weightV = 3-abs(v);
+					sumS += weightH * weightV * (int)hsv[((i + h)*img_width + j + v) * 3 + 1];
+					sumV += weightH * weightV * (int)hsv[((i + h)*img_width + j + v) * 3 + 2];
+				}
+			}
+			hsv[offset_hsv + 1] = sumS / 81;
+			hsv[offset_hsv + 2] = sumV / 81;
+		}
+	}
+	rgb = HSV2RGB(hsv);
+	for (int i = 0; i < img_height; i++)
+	{
+		for (int j = 0; j < img_width; j++)
+		{
+			for (int k = 0; k < 3; k++)
+			{
+				img_data[4 * (img_width*i + j) + k] = rgb[(i*img_width + j) * 3 + k];
+			}
+		}
+	}
+	mImageDst = QImage(img_data, img_width, img_height, QImage::Format_ARGB32);
+	renew();
 }
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -862,27 +897,26 @@ void Application::Filter_Enhance()
 ///////////////////////////////////////////////////////////////////////////////0
 void Application::Half_Size()
 {
-	unsigned char *newRGBA = new unsigned char[img_height*img_width]; //img_height/2*img_width/2 * 4
-	size_t count = 0;
+	unsigned char *newRGBA = new unsigned char[(img_height/2)*(img_width/2)*4]; //img_height/2*img_width/2 * 4
+
 	int sum[4] = { 0 };
-	for (int i = 0; i < img_height - 1; i+=2)
+	for (int i = 0; i < img_height; i+=2) 
 	{
-		for (int j = 0; j < img_width - 1; j+=2)
+		for (int j = 0; j < img_width; j+=2)
 		{
-			for (int k = 0; k < 4; k++)
+			for (int k = 0; k < 4; ++k)
 			{//B G R A //沒有B圖層
-				sum[k] = (int)(img_data[(i*img_width + j) * 4 + k] + img_data[(i*img_width + j + 1) * 4 + k] + img_data[((i + 1)*img_width + j) * 4 + k] + img_data[((i + 1)*img_width + j + 1) * 4 + k]) / 4;
+				sum[k] = (int)(img_data[(i*img_width + j) * 4 + k] + img_data[(i*img_width + j + 1) * 4 + k] + img_data[((i + 1)*img_width + j) * 4 + k] + img_data[((i + 1)*img_width + j + 1) * 4 + k]);
 			}
-			//(i*(img_width)/2 + j/2)*4
-				newRGBA[i*img_width + j*2 + 0] = sum[0];
-				newRGBA[i*img_width + j*2 + 1] = sum[1];
-				newRGBA[i*img_width + j*2 + 2] = sum[2];
-				newRGBA[i*img_width + j*2 + 3] = sum[3];
+				newRGBA[((i/2)*(img_width/2) + j/2)*4 + bb] = sum[0]/4;
+				newRGBA[((i / 2)*(img_width / 2) + j / 2) * 4 + gg] = sum[1]/4;
+				newRGBA[((i / 2)*(img_width / 2) + j / 2) * 4 + rr] = sum[2]/4;
+				newRGBA[((i / 2)*(img_width / 2) + j / 2) * 4 + aa] = sum[3]/4;
 		}
 	}
-	
-	mImageDst = QImage(newRGBA, img_width/2, img_height/2, QImage::Format_ARGB32 );
+	mImageDst = QImage(newRGBA, img_width / 2, img_height / 2, QImage::Format_ARGB32);
 	renew();
+
 }
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -891,7 +925,69 @@ void Application::Half_Size()
 ///////////////////////////////////////////////////////////////////////////////
 void Application::Double_Size()
 {
-	mImageDst = QImage(img_data, img_width, img_height, QImage::Format_ARGB32 );
+	unsigned char *newRGBA = new unsigned char[(img_height*2)*(img_width*2)*4]; //img_height/2*img_width/2 * 4
+
+	int sum[4] = { 0 };
+	//先寫入奇數row
+	for (int j = 0; j < img_width; j++)
+	{	//先直的再橫的
+		for (int k = 0; k < 4; k++)
+		{
+			for (int i = 0; i < img_height - 1; i++)
+			{		
+			//第一個點直接複製
+				newRGBA[(i * 2 * 2 * img_width + j * 2 ) * 4 + k] = img_data[(i*img_width + j)*4 + k];
+				//下方的點用內插
+				newRGBA[((i * 2 + 1) * img_width * 2 + j * 2)*4 + k] = (int)(img_data[(i*img_width + j)*4 + k] + img_data[((i + 1)*img_width + j)*4 + k]) / 2;
+			}
+		//最後一排獨立處理 直接複製原本的最後一排坐clipping
+		newRGBA[((img_height* 2 - 2) * (img_width * 2) + j * 2)*4 + k] = img_data[((img_height-2) * (img_width) + j)*4 + k];
+		}
+	}
+	//寫入偶數row
+	
+		for (int i = 0; i < img_height; i++)
+		{		
+			for (int k = 0; k < 4; k++)
+			{
+				for (int j = 1; j < img_width - 1; j++)
+				{
+					newRGBA[(i * 2 * img_width * 2 + (j * 2-1)) * 4 + k] = (int)(img_data[(i*img_width + j - 1) * 4 + k] + img_data[(i*img_width + j + 1) * 4 + k]) / 2;
+				}	
+				newRGBA[(i * 2 * img_width * 2 + (img_width * 2 - 1)) * 4 + k] = img_data[(i*img_width + img_width - 1) * 4 + k];
+			}
+			
+		}
+	//寫入中心內插
+	
+	for (int j = 1; j < img_width * 2 - 1; j += 2)
+	{
+		for (int i = 1; i < img_height * 2 - 1; i += 2)
+		{
+			for (int k = 0; k < 4; k++)
+			{
+				int sum = (int)(newRGBA[((i - 1)*img_width*2 + j) * 4 + k] +
+					newRGBA[((i + 1)*img_width*2 + j) * 4 + k] +
+					newRGBA[(i*img_width*2 + j - 1) * 4 + k] +
+					newRGBA[(i*img_width*2 + j + 1) * 4 + k])
+					/ 4;
+				newRGBA[(i * img_width*2 + j) * 4 + k] = sum;
+			}
+		}
+	}
+	//很髒的寫法把縫填回去
+	for(int j = 0 ; j < img_width*2; j++)
+		for(int k = 0; k < 4; k++)
+		{
+			newRGBA[((2 * img_height -1) * (2 * img_width) + j) * 4 + k] = newRGBA[((2 * img_height-3) * 2 * img_width + j) * 4 + k];
+		} 
+	for (int i = 0; i < img_height * 2; i++)
+		for (int k = 0; k < 4; k++)
+		{
+			newRGBA[((i*img_width * 2) + img_width * 2 - 3)*4 + k] = newRGBA[((i*img_width * 2) + img_width * 2 - 2)*4+k];
+			newRGBA[((i*img_width * 2) + img_width * 2 - 1) * 4 + k] = newRGBA[((i*img_width * 2) + img_width * 2 - 4)* 4 + k];
+		}
+	mImageDst = QImage(newRGBA, img_width*2, img_height*2, QImage::Format_ARGB32);
 	renew();
 }
 ///////////////////////////////////////////////////////////////////////////////
@@ -924,7 +1020,38 @@ void Application::Resize( float scale )
 ///////////////////////////////////////////////////////////////////////////////
 void Application::Rotate( float angleDegrees )
 {
-	mImageDst = QImage(img_data, img_width, img_height, QImage::Format_ARGB32 );
+/*
+	typedef struct vector2D
+	{
+		double x = -1;
+		double y = -1;
+	} Vector2D;
+	
+	//注意是純量
+	int nH = abs(img_height*cos(angleDegrees)) + abs(img_width*sin(angleDegrees)), nW = abs(img_height*sin(angleDegrees)) + abs(img_width*cos(angleDegrees));
+	//新的圖儲存
+	unsigned char *newRGBA = new unsigned char[(nH * nW) * 4];
+
+	Vector2D *map = new Vector2D[nH * nW];
+
+	//把圖的位置對應到哪個實際座標掃描下來
+	for (int y = 0; y < img_height; y++)
+	{
+		for (int x = 0; x < img_width; x++)		{	//u,v : 圖的index
+			//x,y : 實際位置
+			double u = x*cos(-angleDegrees) - y*sin(-angleDegrees);
+			double v = x*sin(-angleDegrees) + y*cos(-angleDegrees);
+			for(int k = 0; k < 4; k++)
+			{
+		//		Vector2D origin = {0,x*img_width*sin(angleDegrees)}; //x,y
+				newRGBA[(x+y*nW+ (int)(x*img_width*sin(angleDegrees))*4+k)] = img_data[(int)(u+v*img_width)*4+k];
+		//		map[y + nW*x].y = v;
+			}
+		}
+	}
+	*/
+
+//	mImageDst = QImage(newRGBA, nW, nH,	QImage::Format_ARGB32 );
 	renew();
 }
 
@@ -981,7 +1108,7 @@ void Application::Comp_In()
 {
 	if (img_height == img_height2 && img_width == img_width2)
 	{
-
+		
 	}
 	else
 	{
@@ -1055,13 +1182,124 @@ void Application::Comp_Xor()
 ///////////////////////////////////////////////////////////////////////////////
 void Application::NPR_Paint()
 {
+
+	unsigned char *rgb = this->To_RGB();
+	unsigned char *paint_15 = new unsigned char[(img_width*img_height)*3],
+				  *paint_11 = new unsigned char[(img_width*img_height)*3],
+				  *paint_7 = new unsigned char[(img_width*img_height)*3];
+	int N;
+	unsigned char *hsv, *rgb2;
+	hsv = RGB2HSV(rgb);
+	
+	NPR_Paint_Layer(paint_15, hsv,13);
+//	NPR_Paint_Layer(paint_11, hsv, 11);
+	NPR_Paint_Layer_rot(paint_7, hsv, 5);
+	
+	
+	rgb = HSV2RGB(paint_15);
+	rgb2 = HSV2RGB(paint_7);
+	for (int i = 0; i < img_height; i++)
+	{
+		for (int j = 0; j < img_width; j++)
+		{
+				//img_data[(i*img_width + j) * 4 + k] = rgb[(i*img_width + j) * 3 + k];
+				if (rand() > rand())
+				{
+					for (int k = 0; k < 3; k++)
+						img_data[(i*img_width + j) * 4 + k] = rgb[(i*img_width + j) * 3 + k];
+				}
+				else
+				{
+					for (int k = 0; k < 3; k++)
+						img_data[(i*img_width + j) * 4 + k] = rgb2[(i*img_width + j) * 3 + k];
+				}
+		}
+	}
 	mImageDst = QImage(img_data, img_width, img_height, QImage::Format_ARGB32 );
 	renew();
+	delete[] hsv;
+	delete[] rgb;
+	delete[] rgb2;
 }
-
-void Application::NPR_Paint_Layer( unsigned char *tCanvas, unsigned char *tReferenceImage, int tBrushSize )
+void Application::NPR_Paint_Layer_rot(unsigned char * tCanvas, unsigned char * tReferenceImage, int tBrushSize)
 {
+	for (int j = 0 + tBrushSize; j < img_width - tBrushSize; j += rand() % tBrushSize / 2)
+	{
+		for (int i = 0 + tBrushSize; i < img_height - tBrushSize && i >= 0; i += rand() % tBrushSize / 2)
+		{
+		//	i -= (rand() % tBrushSize)*(j % 2);
+			int sumS = 0, sumV = 0, sum = 0;
+			for (int h = -tBrushSize / 2; h <= tBrushSize / 2; h++)
+			{
+				for (int v = -tBrushSize / 2; v <= tBrushSize / 2; v++)
+				{
+					//horizontal, vertical
+					int weightH = Combination(tBrushSize - 1, h + tBrushSize / 2), weightV = Combination(tBrushSize - 1, v + tBrushSize / 2);
+					sum += weightH * weightV;
+					sumS += weightH * weightV * (int)tReferenceImage[((i + h)*img_width + j + v) * 3 + 1];
+					sumV += weightH * weightV * (int)tReferenceImage[((i + h)*img_width + j + v) * 3 + 2];
+				}
+			}
+			int rand_offset_x = (rand() % tBrushSize) - tBrushSize / 2;
+			int rand_offset_y = (rand() % tBrushSize) - tBrushSize / 2;
 
+			for (int a = -tBrushSize; a <= tBrushSize; a++)
+			{
+				for (int b = -tBrushSize; b <= tBrushSize; b++)
+				{
+					if (rand() > rand())
+					{
+						if (((i + rand_offset_y + a) >= 0 && (j + rand_offset_x + b) >= 0 && (i + rand_offset_y + a) < img_height && (j + rand_offset_x + b) < img_width))
+						{
+							tCanvas[((a + i + rand_offset_y)*img_width + b + j + rand_offset_x) * 3] = tReferenceImage[((a + i + rand_offset_y)*img_width + b + j + rand_offset_x) * 3];
+							tCanvas[((a + i + rand_offset_y)*img_width + b + j + rand_offset_x) * 3 + 1] = sumS / sum;
+							tCanvas[((a + i + rand_offset_y)*img_width + b + j + rand_offset_x) * 3 + 2] = sumV / sum;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+void Application::NPR_Paint_Layer( unsigned char *tCanvas, unsigned char *tReferenceImage, int tBrushSize)
+{
+	for (int i = 0 + tBrushSize; i < img_height - tBrushSize / 2 ; i += rand() % tBrushSize / 2+1)
+	{
+		for (int j = 0 + tBrushSize; j < img_width - tBrushSize && j >= 0; j += rand() % tBrushSize / 2)
+		{
+			j -= (rand() % tBrushSize)*(i%2);
+			int sumS = 0, sumV = 0, sum = 0;
+			for (int h = -tBrushSize / 2; h <= tBrushSize / 2; h++)
+			{
+				for (int v = -tBrushSize / 2; v <= tBrushSize / 2; v++)
+				{
+					//horizontal, vertical
+					int weightH = Combination(tBrushSize - 1, h + tBrushSize / 2), weightV = Combination(tBrushSize - 1, v + tBrushSize / 2);
+					sum += weightH * weightV;
+					sumS += weightH * weightV * (int)tReferenceImage[((i + h)*img_width + j + v) * 3 + 1];
+					sumV += weightH * weightV * (int)tReferenceImage[((i + h)*img_width + j + v) * 3 + 2];
+				}
+			}
+			int rand_offset_x = (rand() % tBrushSize ) - tBrushSize / 2;
+			int rand_offset_y = (rand() % tBrushSize ) - tBrushSize / 2;
+
+			for (int a = -tBrushSize; a <= tBrushSize; a++)
+			{
+				for (int b = -tBrushSize; b <= tBrushSize;b++)
+				{
+					if(rand() > rand())
+					{
+						if (((i + rand_offset_y + a ) >=  0 && (j + rand_offset_x + b ) >= 0 && (i + rand_offset_y + a) < img_height && (j + rand_offset_x + b) < img_width))
+						{
+							tCanvas[((a + i + rand_offset_y)*img_width + b + j + rand_offset_x) * 3] = tReferenceImage[((a + i + rand_offset_y)*img_width + b + j + rand_offset_x) * 3];
+							tCanvas[((a+i+rand_offset_y)*img_width + b+j+rand_offset_x) * 3 + 1] = sumS / sum;
+							tCanvas[((a+i+ rand_offset_y)*img_width + b+j + rand_offset_x) * 3 + 2] = sumV / sum;
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////

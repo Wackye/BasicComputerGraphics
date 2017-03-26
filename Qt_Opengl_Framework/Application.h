@@ -74,8 +74,11 @@ public:
 
 	// Special
 	void NPR_Paint();
+	void NPR_Paint_Layer(unsigned char * tCanvas, unsigned char * tReferenceImage, int tBrushSize);
+	void NPR_Paint_Layer_rot(unsigned char * tCanvas, unsigned char * tReferenceImage, int tBrushSize);
+
 	void Paint_Stroke(const Stroke& s);
-	void NPR_Paint_Layer(unsigned char *tCanvas, unsigned char *tReferenceImage, int tBrushSize);
+	//void NPR_Paint_Layer(unsigned char *tCanvas, unsigned char *tReferenceImage, int tBrushSize);
 	
 
 protected:
